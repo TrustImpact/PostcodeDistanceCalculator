@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Distance Calculator</title>
+<script>
+// Asynchronously fetch postcode data from a hosted JSON file
+let postcodeData = [];
+fetch('https://raw.githubusercontent.com/TrustImpact/PostcodeDistanceCalculator/main/full_postcode_data.json') // Replace this URL with the actual URL to your JSON file
+    .then(response => response.json())
+    .then(data => {
+        postcodeData = data;
+    })
+    .catch(error => console.error('Error fetching postcode data:', error));
+
+// Function to find latitude and longitude by postcode
+function findLatLng(postcode) {
+    const entry = postcodeData.find(p => p.PostCode.toUpperCase() === postcode.toUpperCase());
+    return entry ? {lat: entry.Latitude, lng: entry.Longitude} : null;
+}
+
+// Haversine Formula to calculate distance
+function calculateDistance() {
+    const postcode1 = document.getElementById('postcode1').value;
+    const postcode2 = document.getElementById('postcode2').value;
+    const coords1 = findLatLng(postcode1);
+    const coords2 = findLatLng(postcode2);
+
+    if (!coords1 || !coords2) {
+        document.getElementById('result').innerText = 'One or both postcodes are invalid.';
+        return;
+    }
+
+    const R = 6371; // Earth’s radius in kilometers
+    const dLat = (coords2.lat - coords1.lat) * Math.PI / 180;
+    const dLng = (coords2.lng - coords1.lng) * Math.PI / 180;
+    const a = 
+        Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(coords1.lat * Math.PI / 180) * Math.cos(coords2.lat * Math.PI / 180) *
+        Math.sin(dLng/2) * Math.sin(dLng/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const distance = R * c;
+
+    document.getElementById('result').innerText = `Distance: ${distance.toFixed(2)} km`;
+}
+</script>
+</head>
+<body>
+    <h2>Distance Calculator</h2>
+    <form id="distanceForm">
+        <label for="postcode1">Enter first digits of postcode 1:</label>
+        <input type="text" id="postcode1" name="postcode1" required>
+        <label for="postcode2">Enter first digits of postcode 2:</label>
+        <input type="text" id="postcode2" name="postcode2" required>
+        <button type="button" onclick="calculateDistance()">Calculate Distance</button>
+    </form>
+    <p id="result"></p>
+</body>
+</html>
