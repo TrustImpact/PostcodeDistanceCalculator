@@ -1,59 +1,160 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Distance Calculator</title>
-<script>
-// Asynchronously fetch postcode data from a hosted JSON file
-let postcodeData = [];
-fetch('https://raw.githubusercontent.com/TrustImpact/PostcodeDistanceCalculator/main/full_postcode_data.json') // Replace this URL with the actual URL to your JSON file
-    .then(response => response.json())
-    .then(data => {
-        postcodeData = data;
-    })
-    .catch(error => console.error('Error fetching postcode data:', error));
-
-// Function to find latitude and longitude by postcode
-function findLatLng(postcode) {
-    const entry = postcodeData.find(p => p.PostCode.toUpperCase() === postcode.toUpperCase());
-    return entry ? {lat: entry.Latitude, lng: entry.Longitude} : null;
-}
-
-// Haversine Formula to calculate distance
-function calculateDistance() {
-    const postcode1 = document.getElementById('postcode1').value;
-    const postcode2 = document.getElementById('postcode2').value;
-    const coords1 = findLatLng(postcode1);
-    const coords2 = findLatLng(postcode2);
-
-    if (!coords1 || !coords2) {
-        document.getElementById('result').innerText = 'One or both postcodes are invalid.';
-        return;
-    }
-
-    const R = 6371; // Earth’s radius in kilometers
-    const dLat = (coords2.lat - coords1.lat) * Math.PI / 180;
-    const dLng = (coords2.lng - coords1.lng) * Math.PI / 180;
-    const a = 
-        Math.sin(dLat/2) * Math.sin(dLat/2) +
-        Math.cos(coords1.lat * Math.PI / 180) * Math.cos(coords2.lat * Math.PI / 180) *
-        Math.sin(dLng/2) * Math.sin(dLng/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    const distance = R * c;
-
-    document.getElementById('result').innerText = `Distance: ${distance.toFixed(2)} km`;
-}
-</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Distance Calculator</title>
+    <link href="https://trst.uk/css/app.css" rel="stylesheet">
+    <script src="https://kit.fontawesome.com/19a0336ebe.js" crossorigin="anonymous"></script>
+    <style>
+        body {
+            font-family: 'Raleway', sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #ffffff;
+        }
+        #header {
+            width: 100%;
+            background-color: #FFFFFF;
+            padding: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        #header img {
+            height: 100px;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            text-align: left;
+            padding: 8px;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        th {
+            background-color: #5D3FD3;
+            color: white;
+        }
+        /* Additional styles omitted for brevity */
+    </style>
 </head>
 <body>
+    <div id="header">
+        <img src="https://www.trustimpact.com/wp-content/uploads/2020/09/trust-impact-logo.png" alt="Trust Impact Logo"> 
+    </div>
     <h2>Distance Calculator</h2>
-    <form id="distanceForm">
-        <label for="postcode1">Enter first digits of postcode 1:</label>
-        <input type="text" id="postcode1" name="postcode1" required>
-        <label for="postcode2">Enter first digits of postcode 2:</label>
+    <br>
+    <p> Please note this tool uses the postcode outcode long and lat to estimate the distances, so is likely to be inaccurate to the value of one to two miles. 
+    <form id="distanceForm" onsubmit="event.preventDefault(); calculateDistance();">
+        <label for="postcode1">Enter postcodes (one per line):</label>
+        <br>
+        <textarea id="postcode1" name="postcode1" rows="10" cols="30" required></textarea><br>
+        <br>
+        <label for="postcode2">Find distance to:</label>
+        <br>
         <input type="text" id="postcode2" name="postcode2" required>
+        <br>
         <button type="button" onclick="calculateDistance()">Calculate Distance</button>
     </form>
-    <p id="result"></p>
+    <br>
+    <table id="resultsTable">
+        <thead>
+            <tr>
+                <th>Postcode</th>
+                <th>Distance from Postcode 2 (miles)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Results will be inserted here -->
+        </tbody>
+    </table>
+    <br>
+    <button onclick="downloadResults()">Download Results</button>
+    <script>
+        // Asynchronously fetch postcode data from a hosted JSON file
+        let postcodeData = [];
+        fetch('https://raw.githubusercontent.com/TrustImpact/PostcodeDistanceCalculator/main/full_postcode_data.json')
+            .then(response => response.json())
+            .then(data => {
+                postcodeData = data;
+            })
+            .catch(error => console.error('Error fetching postcode data:', error));
+
+        // Function to find latitude and longitude by postcode
+        function findLatLng(postcode) {
+            const partialPostcode = postcode.split(' ')[0].toUpperCase();
+            const entry = postcodeData.find(p => p.PostCode.toUpperCase().startsWith(partialPostcode));
+            return entry ? {lat: entry.Latitude, lng: entry.Longitude} : null;
+        }
+
+        // Haversine Formula to calculate distance
+        function calculateDistance() {
+            const postcode1Input = document.getElementById('postcode1').value;
+            const postcode2 = document.getElementById('postcode2').value;
+
+            const coords2 = findLatLng(postcode2);
+            if (!coords2) {
+                document.getElementById('resultsTable').getElementsByTagName('tbody')[0].innerHTML = "<tr><td colspan='2'>The postcode 2 is invalid.</td></tr>";
+                return;
+            }
+
+            // Clear previous results
+            const tableBody = document.getElementById('resultsTable').getElementsByTagName('tbody')[0];
+            tableBody.innerHTML = '';
+
+            // Split the postcode1 input into an array using line breaks as a delimiter
+            postcode1Input.split('\n').forEach(postcode1 => {
+                const coords1 = findLatLng(postcode1.trim());
+                let distanceText = 'Invalid postcode';
+
+                if (coords1) {
+                    const R = 3958.8; // Earth’s radius in miles
+                    const dLat = (coords2.lat - coords1.lat) * Math.PI / 180;
+                    const dLng = (coords2.lng - coords1.lng) * Math.PI / 180;
+                    const a = 
+                        Math.sin(dLat/2) * Math.sin(dLat/2) +
+                        Math.cos(coords1.lat * Math.PI / 180) * Math.cos(coords2.lat * Math.PI / 180) *
+                        Math.sin(dLng/2) * Math.sin(dLng/2);
+                    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                    const distance = R * c;
+                    distanceText = `${distance.toFixed(2)} miles`;
+                }
+
+                // Append result row to table
+                let row = tableBody.insertRow();
+                row.insertCell(0).innerText = postcode1.trim();
+                row.insertCell(1).innerText = distanceText;
+            });
+        }
+
+        function downloadResults() {
+            let table = document.getElementById("resultsTable"); // Get the table
+            let rows = table.querySelectorAll("tr");
+            let csvContent = "data:text/csv;charset=utf-8,";
+
+            rows.forEach(function(row, index){
+                let cells = row.querySelectorAll("th, td"); // Get all headers and cells
+                let rowContent = [];
+                cells.forEach(function(cell){
+                    rowContent.push(cell.textContent); // Add cell content
+                });
+                csvContent += rowContent.join(",") + "\r\n"; // End of row
+            });
+
+            var encodedUri = encodeURI(csvContent);
+            var link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "distance_results.csv"); // Name the file here
+            document.body.appendChild(link); // Required for FF
+
+            link.click(); // This will download the file
+        }
+    </script>
 </body>
 </html>
